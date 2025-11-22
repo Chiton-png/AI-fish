@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Evolving Fish vs Shark – Neural GA</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    :root {
+      color-scheme: dark;
+    }
+    body {
+      background: radial-gradient(circle at top, #0b1020 0, #020409 45%, #000 100%);
+      color: #e3f2fd;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px;
+      gap: 10px;
+      user-select: none;
+    }
+    h1 {
+      font-size: 22px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #bbdefb;
+      text-shadow: 0 0 12px rgba(100,181,246,0.8);
+    }
+    .subtitle {
+      font-size: 12px;
+      opacity: 0.7;
+      max-width: 800px;
+      text-align: center;
+    }
+
+    #gameContainer {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      justify-content: center;
+      width: 100%;
+      max-width: 1200px;
+    }
+
+    #game {
+      background: radial-gradient(circle at 50% 20%, #1a237e 0, #02051a 60%, #000 100%);
+      border-radius: 12px;
+      border: 2px solid rgba(187,222,251,0.25);
+      box-shadow:
+        0 0 40px rgba(13,71,161,0.7),
+        0 0 120px rgba(3,169,244,0.35);
+      display: block;
+    }
+
+    #sidebar {
+      width: 260px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 12px;
+    }
+
+    .panel {
+      background: linear-gradient(145deg, rgba(12,17,30,0.98), rgba(8,12,24,0.98));
+      border-radius: 10px;
+      border: 1px solid rgba(120,144,156,0.35);
+      padding: 8px 10px;
+      box-shadow:
+        0 8px 20px rgba(0,0,0,0.6),
+        inset 0 0 0 1px rgba(255,255,255,0.02);
+      backdrop-filter: blur(16px);
+    }
+
+    .panel h2 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #90caf9;
+      margin-bottom: 4px;
+      opacity: 0.9;
+    }
+
+    .statRow {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2px;
+      font-size: 11px;
+    }
+    .statLabel {
+      opacity: 0.75;
+    }
+    .statValue {
+      font-variant-numeric: tabular-nums;
+      color: #e3f2fd;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .buttonRow {
+      display: flex;
+      gap: 6px;
+    }
+
+    button {
+      flex: 1;
+      border-radius: 999px;
+      border: 1px solid rgba(144,202,249,0.6);
+      background: radial-gradient(circle at top, #1976d2 0, #0d47a1 40%, #020817 100%);
+      color: #e3f2fd;
+      font-size: 11px;
+      padding: 6px 10px;
+      cursor: pointer;
+      outline: none;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.12s ease;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.8);
+    }
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.9);
+      background: radial-gradient(circle at top, #2196f3 0, #1565c0 40%, #020817 100%);
+    }
+    button:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.9);
+    }
+
+    .sliderRow {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-top: 4px;
+    }
+    .sliderLabel {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      opacity: 0.8;
+    }
+    input[type="range"] {
+      width: 100%;
+      cursor: pointer;
+    }
+
+    .note {
+      margin-top: 4px;
+      font-size: 11px;
+      opacity: 0.65;
+      line-height: 1.3;
+    }
+
+    .legendRow {
+      display: flex;
+      gap: 8px;
+      font-size: 11px;
+      margin-top: 3px;
+      opacity: 0.8;
+      flex-wrap: wrap;
+    }
+    .legendTag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .legendDot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,0.8);
+    }
+
+    .legendDot.best {
+      background: #4fc3f7;
+    }
+    .legendDot.normal {
+      background: #81c784;
+    }
+    .legendDot.dead {
+      background: #455a64;
+    }
+
+    .tipPanel {
+      font-size: 11px;
+      opacity: 0.7;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 960px) {
+      #gameContainer {
+        flex-direction: column;
+        align-items: center;
+      }
+      #sidebar {
+        width: 100%;
+        max-width: 480px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>EVOLVING FISH VS SHARK</h1>
+  <div class="subtitle">
+    A small school of fish uses tiny neural networks &amp; a genetic algorithm to learn how to avoid a hungry shark.
+    Let it run for a while and watch later generations get better at staying alive.
+  </div>
+
+  <div id="gameContainer">
+    <canvas id="game" width="900" height="520"></canvas>
+
+    <div id="sidebar">
+      <div class="panel">
+        <h2>Evolution Stats</h2>
+        <div class="statRow">
+          <span class="statLabel">Generation</span>
+          <span class="statValue" id="genStat">1</span>
+        </div>
+        <div class="statRow">
+          <span class="statLabel">Frame in Gen</span>
+          <span class="statValue" id="frameStat">0 / 0</span>
+        </div>
+        <div class="statRow">
+          <span class="statLabel">Alive Fish</span>
+          <span class="statValue" id="aliveStat">0</span>
+        </div>
+        <div class="statRow">
+          <span class="statLabel">Best Fitness (Gen)</span>
+          <span class="statValue" id="bestStat">0</span>
+        </div>
+        <div class="statRow">
+          <span class="statLabel">Average Fitness</span>
+          <span class="statValue" id="avgStat">0</span>
+        </div>
+        <div class="statRow">
+          <span class="statLabel">Global Best Fitness</span>
+          <span class="statValue" id="globalBestStat">0</span>
+        </div>
+        <div class="legendRow">
+          <span class="legendTag">
+            <span class="legendDot best"></span> Best this gen
+          </span>
+          <span class="legendTag">
+            <span class="legendDot normal"></span> Other fish
+          </span>
+          <span class="legendTag">
+            <span class="legendDot dead"></span> Eaten
+          </span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Simulation Control</h2>
+        <div class="controls">
+          <div class="buttonRow">
+            <button id="toggleRunBtn">Pause</button>
+            <button id="nextGenBtn">Skip Gen</button>
+          </div>
+          <div class="sliderRow">
+            <div class="sliderLabel">
+              <span>Sim Speed</span>
+              <span id="speedLabel">x1</span>
+            </div>
+            <input type="range" id="speedSlider" min="1" max="12" value="1" />
+          </div>
+          <div class="sliderRow">
+            <div class="sliderLabel">
+              <span>Fish per Generation</span>
+              <span id="popLabel">40</span>
+            </div>
+            <input type="range" id="popSlider" min="10" max="80" step="10" value="40" />
+          </div>
+          <div class="sliderRow">
+            <div class="sliderLabel">
+              <span>Frames per Generation</span>
+              <span id="framesPerGenLabel">2400</span>
+            </div>
+            <input type="range" id="framesSlider" min="600" max="3600" step="300" value="2400" />
+          </div>
+        </div>
+        <div class="note">
+          Tip: crank up <b>Sim Speed</b> to evolve faster, then slow it down to watch what the best fish do.
+        </div>
+      </div>
+
+      <div class="panel tipPanel">
+        Over time, the fish should:
+        <ul style="margin-left:14px;margin-top:4px;">
+          <li>Turn away from the shark earlier.</li>
+          <li>Spread out and kite it around the arena.</li>
+          <li>Survive for more frames on average.</li>
+        </ul>
+        Each fish has a small neural network that sees the shark's direction and its own velocity, then outputs how to steer.
+        After each generation, the best networks are copied &amp; mutated for the next wave.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========= Basic Setup =========
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // DOM elements
+    const genStatEl = document.getElementById("genStat");
+    const frameStatEl = document.getElementById("frameStat");
+    const aliveStatEl = document.getElementById("aliveStat");
+    const bestStatEl = document.getElementById("bestStat");
+    const avgStatEl = document.getElementById("avgStat");
+    const globalBestStatEl = document.getElementById("globalBestStat");
+
+    const toggleRunBtn = document.getElementById("toggleRunBtn");
+    const nextGenBtn = document.getElementById("nextGenBtn");
+    const speedSlider = document.getElementById("speedSlider");
+    const speedLabel = document.getElementById("speedLabel");
+    const popSlider = document.getElementById("popSlider");
+    const popLabel = document.getElementById("popLabel");
+    const framesSlider = document.getElementById("framesSlider");
+    const framesPerGenLabel = document.getElementById("framesPerGenLabel");
+
+    // ========= Parameters =========
+    let POPULATION_SIZE = parseInt(popSlider.value, 10); // number of fish
+    let FRAMES_PER_GENERATION = parseInt(framesSlider.value, 10);
+
+    const FISH_RADIUS = 6;
+    const SHARK_RADIUS = 20;
+    const FISH_MAX_SPEED = 3.5;
+    const FISH_ACCEL = 0.3;
+    const SHARK_MAX_SPEED = 4.0;
+    const SHARK_TURN_RATE = 0.12;
+    const ELITE_COUNT = 5;       // top fish copied directly
+    const TOP_POOL = 12;         // parents picked from this many best fish
+    const MUTATION_RATE = 0.12;  // probability per weight to mutate
+    const MUTATION_STRENGTH = 0.5;
+
+    // ========= Evolution State =========
+    let fishes = [];
+    let shark = null;
+    let generation = 1;
+    let frameInGen = 0;
+
+    let globalBestFitness = 0;
+    let globalBestGenome = null;
+
+    let running = true;
+    let simSpeed = parseInt(speedSlider.value, 10); // ticks per frame
+
+    // ========= Neural Network (Brain) =========
+    // Simple fully-connected: 4 inputs -> 6 hidden -> 2 outputs
+    // Activation: tanh
+    class Brain {
+      constructor(w1, b1, w2, b2) {
+        // w1: [6][4], b1: [6]
+        // w2: [2][6], b2: [2]
+        this.w1 = w1;
+        this.b1 = b1;
+        this.w2 = w2;
+        this.b2 = b2;
+      }
+
+      static random() {
+        const randWeight = () => (Math.random() * 2 - 1) * 1.0;
+        const w1 = [];
+        const b1 = [];
+        for (let i = 0; i < 6; i++) {
+          const row = [];
+          for (let j = 0; j < 4; j++) {
+            row.push(randWeight());
+          }
+          w1.push(row);
+          b1.push(randWeight());
+        }
+        const w2 = [];
+        const b2 = [];
+        for (let i = 0; i < 2; i++) {
+          const row = [];
+          for (let j = 0; j < 6; j++) {
+            row.push(randWeight());
+          }
+          w2.push(row);
+          b2.push(randWeight());
+        }
+        return new Brain(w1, b1, w2, b2);
+      }
+
+      clone() {
+        const w1 = this.w1.map(row => row.slice());
+        const b1 = this.b1.slice();
+        const w2 = this.w2.map(row => row.slice());
+        const b2 = this.b2.slice();
+        return new Brain(w1, b1, w2, b2);
+      }
+
+      mutate() {
+        const maybeMutate = (val) => {
+          if (Math.random() < MUTATION_RATE) {
+            return val + (Math.random() * 2 - 1) * MUTATION_STRENGTH;
+          }
+          return val;
+        };
+        for (let i = 0; i < this.w1.length; i++) {
+          for (let j = 0; j < this.w1[i].length; j++) {
+            this.w1[i][j] = maybeMutate(this.w1[i][j]);
+          }
+          this.b1[i] = maybeMutate(this.b1[i]);
+        }
+        for (let i = 0; i < this.w2.length; i++) {
+          for (let j = 0; j < this.w2[i].length; j++) {
+            this.w2[i][j] = maybeMutate(this.w2[i][j]);
+          }
+          this.b2[i] = maybeMutate(this.b2[i]);
+        }
+      }
+
+      forward(inputs) {
+        // inputs: [dx, dy, vx, vy]
+        const hidden = new Array(6);
+        for (let i = 0; i < 6; i++) {
+          let sum = this.b1[i];
+          const row = this.w1[i];
+          for (let j = 0; j < 4; j++) {
+            sum += row[j] * inputs[j];
+          }
+          hidden[i] = Math.tanh(sum);
+        }
+        const outputs = new Array(2);
+        for (let i = 0; i < 2; i++) {
+          let sum = this.b2[i];
+          const row = this.w2[i];
+          for (let j = 0; j < 6; j++) {
+            sum += row[j] * hidden[j];
+          }
+          outputs[i] = Math.tanh(sum);
+        }
+        return outputs; // [ax, ay]
+      }
+    }
+
+    // ========= Entities =========
+    class Fish {
+      constructor(brain) {
+        this.brain = brain || Brain.random();
+        this.reset();
+      }
+
+      reset() {
+        // Spawn somewhere central-ish
+        this.x = W * (0.25 + Math.random() * 0.5);
+        this.y = H * (0.25 + Math.random() * 0.5);
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 1 + Math.random() * 1.5;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+
+        this.alive = true;
+        this.fitness = 0;
+        this.age = 0;
+      }
+
+      update(shark) {
+        if (!this.alive) return;
+
+        this.age++;
+
+        // Normalized inputs
+        const dxRaw = shark.x - this.x;
+        const dyRaw = shark.y - this.y;
+        const dx = dxRaw / W; // roughly [-1,1]
+        const dy = dyRaw / H;
+        const ivx = this.vx / FISH_MAX_SPEED;
+        const ivy = this.vy / FISH_MAX_SPEED;
+
+        const [ax, ay] = this.brain.forward([dx, dy, ivx, ivy]);
+
+        this.vx += ax * FISH_ACCEL;
+        this.vy += ay * FISH_ACCEL;
+
+        const speed = Math.hypot(this.vx, this.vy);
+        if (speed > FISH_MAX_SPEED) {
+          this.vx = (this.vx / speed) * FISH_MAX_SPEED;
+          this.vy = (this.vy / speed) * FISH_MAX_SPEED;
+        }
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Boundaries: bounce off edges
+        if (this.x < FISH_RADIUS) {
+          this.x = FISH_RADIUS;
+          this.vx = Math.abs(this.vx);
+        } else if (this.x > W - FISH_RADIUS) {
+          this.x = W - FISH_RADIUS;
+          this.vx = -Math.abs(this.vx);
+        }
+        if (this.y < FISH_RADIUS) {
+          this.y = FISH_RADIUS;
+          this.vy = Math.abs(this.vy);
+        } else if (this.y > H - FISH_RADIUS) {
+          this.y = H - FISH_RADIUS;
+          this.vy = -Math.abs(this.vy);
+        }
+
+        // Fitness: reward being far away from shark while alive
+        const dist = Math.hypot(dxRaw, dyRaw);
+        const clamped = Math.min(dist, Math.max(W, H));
+        this.fitness += clamped * 0.01;
+      }
+
+      draw(ctx, isBest) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        const angle = Math.atan2(this.vy, this.vx);
+        ctx.rotate(angle);
+
+        // body
+        ctx.beginPath();
+        ctx.ellipse(0, 0, FISH_RADIUS * 1.5, FISH_RADIUS, 0, 0, Math.PI * 2);
+        if (!this.alive) {
+          ctx.fillStyle = "#455a64";
+        } else if (isBest) {
+          ctx.fillStyle = "#4fc3f7";
+        } else {
+          ctx.fillStyle = "#81c784";
+        }
+        ctx.fill();
+
+        // tail
+        ctx.beginPath();
+        ctx.moveTo(-FISH_RADIUS * 1.5, 0);
+        ctx.lineTo(-FISH_RADIUS * 2.4, FISH_RADIUS * 0.9);
+        ctx.lineTo(-FISH_RADIUS * 2.4, -FISH_RADIUS * 0.9);
+        ctx.closePath();
+        ctx.fill();
+
+        // eye
+        ctx.beginPath();
+        ctx.arc(FISH_RADIUS * 0.7, -FISH_RADIUS * 0.3, 1.4, 0, Math.PI * 2);
+        ctx.fillStyle = "#000";
+        ctx.fill();
+
+        ctx.restore();
+      }
+    }
+
+    class Shark {
+      constructor() {
+        this.reset();
+      }
+
+      reset() {
+        this.x = W * (0.1 + Math.random() * 0.8);
+        this.y = H * (0.1 + Math.random() * 0.8);
+        this.vx = 0;
+        this.vy = 0;
+      }
+
+      update(fishes) {
+        // Target nearest alive fish
+        let target = null;
+        let bestDistSq = Infinity;
+        for (const f of fishes) {
+          if (!f.alive) continue;
+          const dx = f.x - this.x;
+          const dy = f.y - this.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < bestDistSq) {
+            bestDistSq = d2;
+            target = f;
+          }
+        }
+
+        if (target) {
+          const dx = target.x - this.x;
+          const dy = target.y - this.y;
+          const dist = Math.hypot(dx, dy) || 1;
+          const desiredVx = (dx / dist) * SHARK_MAX_SPEED;
+          const desiredVy = (dy / dist) * SHARK_MAX_SPEED;
+
+          this.vx += (desiredVx - this.vx) * SHARK_TURN_RATE;
+          this.vy += (desiredVy - this.vy) * SHARK_TURN_RATE;
+        }
+
+        const speed = Math.hypot(this.vx, this.vy);
+        if (speed > SHARK_MAX_SPEED) {
+          this.vx = (this.vx / speed) * SHARK_MAX_SPEED;
+          this.vy = (this.vy / speed) * SHARK_MAX_SPEED;
+        }
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // keep shark in bounds (soft clamp)
+        if (this.x < SHARK_RADIUS) {
+          this.x = SHARK_RADIUS;
+          this.vx = Math.abs(this.vx);
+        } else if (this.x > W - SHARK_RADIUS) {
+          this.x = W - SHARK_RADIUS;
+          this.vx = -Math.abs(this.vx);
+        }
+        if (this.y < SHARK_RADIUS) {
+          this.y = SHARK_RADIUS;
+          this.vy = Math.abs(this.vy);
+        } else if (this.y > H - SHARK_RADIUS) {
+          this.y = H - SHARK_RADIUS;
+          this.vy = -Math.abs(this.vy);
+        }
+      }
+
+      draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        const angle = Math.atan2(this.vy, this.vx);
+        ctx.rotate(angle);
+
+        // body
+        ctx.beginPath();
+        ctx.moveTo(SHARK_RADIUS * 1.2, 0);
+        ctx.lineTo(-SHARK_RADIUS * 1.0, SHARK_RADIUS * 0.9);
+        ctx.lineTo(-SHARK_RADIUS * 1.4, 0);
+        ctx.lineTo(-SHARK_RADIUS * 1.0, -SHARK_RADIUS * 0.9);
+        ctx.closePath();
+        const gradient = ctx.createLinearGradient(-SHARK_RADIUS * 1.4, 0, SHARK_RADIUS * 1.2, 0);
+        gradient.addColorStop(0, "#263238");
+        gradient.addColorStop(1, "#eceff1");
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "rgba(0,0,0,0.8)";
+        ctx.stroke();
+
+        // dorsal fin
+        ctx.beginPath();
+        ctx.moveTo(-SHARK_RADIUS * 0.4, 0);
+        ctx.lineTo(0, -SHARK_RADIUS * 1.2);
+        ctx.lineTo(SHARK_RADIUS * 0.4, 0);
+        ctx.closePath();
+        ctx.fillStyle = "#37474f";
+        ctx.fill();
+
+        // eye
+        ctx.beginPath();
+        ctx.arc(SHARK_RADIUS * 0.4, -SHARK_RADIUS * 0.2, 2.4, 0, Math.PI * 2);
+        ctx.fillStyle = "#000";
+        ctx.fill();
+
+        // mouth outline
+        ctx.beginPath();
+        ctx.arc(SHARK_RADIUS * 0.4, SHARK_RADIUS * 0.3, SHARK_RADIUS * 0.7, -0.3 * Math.PI, 0.3 * Math.PI);
+        ctx.strokeStyle = "rgba(229,115,115,0.7)";
+        ctx.lineWidth = 1.1;
+        ctx.stroke();
+
+        ctx.restore();
+      }
+    }
+
+    // ========= Evolution Logic =========
+    function createInitialPopulation() {
+      fishes = [];
+      for (let i = 0; i < POPULATION_SIZE; i++) {
+        fishes.push(new Fish());
+      }
+      shark = new Shark();
+      generation = 1;
+      frameInGen = 0;
+      globalBestFitness = 0;
+      globalBestGenome = null;
+      updateStatUI();
+    }
+
+    function evolveGeneration() {
+      // Sort by fitness
+      const sorted = fishes.slice().sort((a, b) => b.fitness - a.fitness);
+
+      const best = sorted[0];
+      const totalFitness = fishes.reduce((sum, f) => sum + f.fitness, 0);
+      const avgFitness = totalFitness / fishes.length;
+      const bestFitness = best.fitness;
+
+      if (bestFitness > globalBestFitness) {
+        globalBestFitness = bestFitness;
+        globalBestGenome = best.brain.clone();
+      }
+
+      // Build next generation
+      const newFishes = [];
+
+      // Elites: copy top ELITE_COUNT without mutation
+      const actualElite = Math.min(ELITE_COUNT, sorted.length);
+      for (let i = 0; i < actualElite; i++) {
+        const brainCopy = sorted[i].brain.clone();
+        newFishes.push(new Fish(brainCopy));
+      }
+
+      // Remainder: pick parents from top pool, clone + mutate
+      const poolSize = Math.min(TOP_POOL, sorted.length);
+      while (newFishes.length < POPULATION_SIZE) {
+        const parentIndex = Math.floor(Math.random() * poolSize);
+        const parent = sorted[parentIndex];
+        const brainCopy = parent.brain.clone();
+        brainCopy.mutate();
+        newFishes.push(new Fish(brainCopy));
+      }
+
+      fishes = newFishes;
+      shark.reset();
+      generation++;
+      frameInGen = 0;
+
+      // Update UI
+      bestStatEl.textContent = bestFitness.toFixed(1);
+      avgStatEl.textContent = avgFitness.toFixed(1);
+      globalBestStatEl.textContent = globalBestFitness.toFixed(1);
+    }
+
+    // ========= Update & Draw Loop =========
+    function updateSimulationStep() {
+      frameInGen++;
+
+      shark.update(fishes);
+
+      for (const fish of fishes) {
+        if (!fish.alive) continue;
+        fish.update(shark);
+
+        const dx = fish.x - shark.x;
+        const dy = fish.y - shark.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < SHARK_RADIUS + FISH_RADIUS * 0.7) {
+          fish.alive = false;
+        }
+      }
+
+      const aliveCount = fishes.filter(f => f.alive).length;
+      if (aliveCount === 0 || frameInGen >= FRAMES_PER_GENERATION) {
+        evolveGeneration();
+      }
+    }
+
+    function drawBackground() {
+      // soft vignette + water caustic lines
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      const gradient = ctx.createRadialGradient(
+        W * 0.5, H * 0.1, 0,
+        W * 0.5, H * 0.5, H * 0.9
+      );
+      gradient.addColorStop(0, "rgba(144,202,249,0.18)");
+      gradient.addColorStop(1, "rgba(13,71,161,0.02)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      // caustic-style lines
+      ctx.save();
+      ctx.globalAlpha = 0.08;
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 16; i++) {
+        const y = (i / 16) * H;
+        ctx.beginPath();
+        for (let x = 0; x <= W; x += 40) {
+          const wobble = Math.sin((x / W) * Math.PI * 4 + i * 0.5 + frameInGen * 0.01) * 6;
+          const yy = y + wobble;
+          if (x === 0) ctx.moveTo(x, yy);
+          else ctx.lineTo(x, yy);
+        }
+        ctx.strokeStyle = "rgba(187,222,251,0.4)";
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawEntities() {
+      // Determine current best fish
+      let bestFish = null;
+      for (const f of fishes) {
+        if (!f.alive) continue;
+        if (!bestFish || f.fitness > bestFish.fitness) {
+          bestFish = f;
+        }
+      }
+
+      for (const fish of fishes) {
+        fish.draw(ctx, fish === bestFish);
+      }
+
+      shark.draw(ctx);
+    }
+
+    function drawOverlayText() {
+      ctx.save();
+      ctx.font = "11px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+      ctx.fillStyle = "rgba(227,242,253,0.9)";
+      ctx.textBaseline = "top";
+
+      const infoLines = [
+        `Gen ${generation}`,
+        `Frame ${frameInGen}/${FRAMES_PER_GENERATION}`,
+        `Fish alive: ${fishes.filter(f => f.alive).length}/${fishes.length}`,
+        `Speed: x${simSpeed}`
+      ];
+
+      let y = 8;
+      for (const line of infoLines) {
+        ctx.fillText(line, 10, y);
+        y += 14;
+      }
+
+      ctx.globalAlpha = 0.6;
+      ctx.fillText("Fish learn by evolution, not scripted AI.", 10, H - 22);
+      ctx.restore();
+    }
+
+    function updateStatUI() {
+      genStatEl.textContent = generation;
+      frameStatEl.textContent = `${frameInGen} / ${FRAMES_PER_GENERATION}`;
+      aliveStatEl.textContent = fishes.filter(f => f.alive).length.toString();
+      // best/avg/global best updated during evolution
+    }
+
+    function gameLoop() {
+      if (running) {
+        const steps = simSpeed;
+        for (let i = 0; i < steps; i++) {
+          updateSimulationStep();
+        }
+      }
+
+      ctx.clearRect(0, 0, W, H);
+      drawBackground();
+      drawEntities();
+      drawOverlayText();
+      updateStatUI();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // ========= UI Handlers =========
+    toggleRunBtn.addEventListener("click", () => {
+      running = !running;
+      toggleRunBtn.textContent = running ? "Pause" : "Resume";
+    });
+
+    nextGenBtn.addEventListener("click", () => {
+      // force evolution early
+      evolveGeneration();
+    });
+
+    speedSlider.addEventListener("input", () => {
+      simSpeed = parseInt(speedSlider.value, 10);
+      speedLabel.textContent = `x${simSpeed}`;
+    });
+
+    popSlider.addEventListener("input", () => {
+      POPULATION_SIZE = parseInt(popSlider.value, 10);
+      popLabel.textContent = POPULATION_SIZE.toString();
+      // Rebuild population next generation
+    });
+
+    framesSlider.addEventListener("input", () => {
+      FRAMES_PER_GENERATION = parseInt(framesSlider.value, 10);
+      framesPerGenLabel.textContent = FRAMES_PER_GENERATION.toString();
+    });
+
+    // ========= Init =========
+    createInitialPopulation();
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
